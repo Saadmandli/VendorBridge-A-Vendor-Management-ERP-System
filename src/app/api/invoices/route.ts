@@ -12,9 +12,18 @@ export async function GET() {
       ? { purchaseOrder: { vendorId: user.vendorId } } : {};
     const invoices = await prisma.invoice.findMany({
       where, orderBy: { createdAt: "desc" },
-      include: { purchaseOrder: { include: { vendor: true, quotation: { include: { rfq: true } }, goodsReceipt: true } } },
+      include: { purchaseOrder: { include: { vendor: true, quotation: { include: { rfq: true } }, goodsReceipts: true } } },
     });
-    return NextResponse.json({ invoices });
+    const formattedInvoices = invoices.map((inv) => ({
+      ...inv,
+      purchaseOrder: inv.purchaseOrder
+        ? {
+            ...inv.purchaseOrder,
+            goodsReceipt: (inv.purchaseOrder as any).goodsReceipts?.[0] || null,
+          }
+        : null,
+    }));
+    return NextResponse.json({ invoices: formattedInvoices });
   } catch (e) { return err(e); }
 }
 

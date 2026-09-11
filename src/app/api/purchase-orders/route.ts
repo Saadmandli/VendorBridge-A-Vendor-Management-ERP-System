@@ -10,9 +10,13 @@ export async function GET() {
     const where = user.role === "SELLER" && user.vendorId ? { vendorId: user.vendorId } : {};
     const orders = await prisma.purchaseOrder.findMany({
       where, orderBy: { createdAt: "desc" },
-      include: { vendor: true, quotation: { include: { rfq: true } }, invoice: true, goodsReceipt: true },
+      include: { vendor: true, quotation: { include: { rfq: true } }, invoice: true, goodsReceipts: true },
     });
-    return NextResponse.json({ orders });
+    const formattedOrders = orders.map((o) => ({
+      ...o,
+      goodsReceipt: o.goodsReceipts[0] || null,
+    }));
+    return NextResponse.json({ orders: formattedOrders });
   } catch (e) { return err(e); }
 }
 
@@ -23,7 +27,12 @@ export async function POST(req: Request) {
     const { quotationId, taxRate } = await req.json();
     const quotation = await prisma.quotation.findUnique({
       where: { id: quotationId },
-      include: { vendor: true, rfq: { include: { approvals: true, quotations: true } }, purchaseOrder: true },
+      include: {
+        vendor: true,
+        rfq: { include: { approvals: true, quotations: true } },
+        purchaseOrder: true,
+        items: { include: { rfqItem: true } },
+      },
     });
     if (!quotation) return NextResponse.json({ error: "Quotation not found" }, { status: 404 });
     if (quotation.purchaseOrder) return NextResponse.json({ error: "A purchase order already exists for this quotation" }, { status: 409 });
@@ -31,10 +40,20 @@ export async function POST(req: Request) {
     const approved = quotation.rfq.approvals.some((a) => a.quotationId === quotationId && a.status === "APPROVED");
     if (!approved) return NextResponse.json({ error: "Quotation must be approved before generating a PO" }, { status: 400 });
 
-    const rate = taxRate !== undefined ? Number(taxRate) : 18;
     const subtotal = quotation.totalAmount;
-    const taxAmount = +(subtotal * rate / 100).toFixed(2);
+    let totalTax = 0;
+    if (quotation.items && quotation.items.length > 0) {
+      for (const it of quotation.items) {
+        const itemGst = it.rfqItem?.gstRate ?? 18;
+        totalTax += it.amount * (itemGst / 100);
+      }
+    } else {
+      const fallbackRate = taxRate !== undefined ? Number(taxRate) : 18;
+      totalTax = subtotal * (fallbackRate / 100);
+    }
+    const taxAmount = +totalTax.toFixed(2);
     const totalAmount = +(subtotal + taxAmount).toFixed(2);
+    const effectiveTaxRate = subtotal > 0 ? +((taxAmount / subtotal) * 100).toFixed(2) : 18;
 
     // Realized savings: highest competing bid minus the awarded subtotal.
     const competing = quotation.rfq.quotations.map((q) => q.totalAmount);
@@ -46,7 +65,7 @@ export async function POST(req: Request) {
     const poNumber = await genNumber("PO", count);
 
     const po = await prisma.purchaseOrder.create({
-      data: { poNumber, quotationId, vendorId: quotation.vendorId, subtotal, taxRate: rate, taxAmount, totalAmount, savings, budgetSaving, status: "ISSUED" },
+      data: { poNumber, quotationId, vendorId: quotation.vendorId, subtotal, taxRate: effectiveTaxRate, taxAmount, totalAmount, savings, budgetSaving, status: "ISSUED" },
       include: { vendor: true },
     });
 

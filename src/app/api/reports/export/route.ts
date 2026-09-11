@@ -8,7 +8,7 @@ export async function GET() {
   try {
     await requireUser(["ADMIN", "BUYER"]);
     const pos = await prisma.purchaseOrder.findMany({
-      include: { vendor: true, quotation: { include: { rfq: true } }, invoice: true, goodsReceipt: true },
+      include: { vendor: true, quotation: { include: { rfq: true } }, invoice: true, goodsReceipts: true },
       orderBy: { createdAt: "desc" },
     });
     const rows = pos.map((p) => ({
@@ -22,7 +22,7 @@ export async function GET() {
       Savings: p.savings,
       Budget_Saving: p.budgetSaving,
       PO_Status: p.status,
-      Goods_Received: p.goodsReceipt ? p.goodsReceipt.status : "NOT_RECEIVED",
+      Goods_Received: p.goodsReceipts && p.goodsReceipts.length > 0 ? (p.goodsReceipts.some(g => g.status === "COMPLETE") ? "COMPLETE" : "PARTIAL") : "NOT_RECEIVED",
       Invoice: p.invoice ? p.invoice.invoiceNumber : "",
       Invoice_Match: p.invoice ? p.invoice.matchStatus : "",
       Date: fmtDate(p.createdAt),

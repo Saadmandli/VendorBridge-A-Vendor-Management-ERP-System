@@ -25,7 +25,7 @@ async function main() {
   const steel = await prisma.vendor.create({ data: { name: "SteelWorks Industries", category: "Construction", subcategory: "Steel & Rebar", gstNumber: "22AAECS4455K1Z1", contactName: "Rajesh Patil", email: "vendor@steelworks.com", phone: "+91 97654 77777", address: "Hinjewadi, Pune, MH", city: "Pune", status: "ACTIVE", rating: 3.8 } });
   const cloud = await prisma.vendor.create({ data: { name: "CloudServe IT Services", category: "Services", subcategory: "IT Services & Consulting", gstNumber: "36AABCC8899M1Z6", contactName: "Ananya Reddy", email: "vendor@cloudserve.com", phone: "+91 96543 88888", address: "HITEC City, Hyderabad, TS", city: "Hyderabad", status: "ACTIVE", rating: 4.6 } });
   const legacy = await prisma.vendor.create({ data: { name: "Legacy Office Mart", category: "Office Supplies", subcategory: "Paper & Stationery", gstNumber: "09AAACL2233P1Z7", contactName: "Vikram Singh", email: "vendor@legacy.com", phone: "+91 95432 99999", address: "Sector 62, Noida, UP", city: "Noida", status: "INACTIVE", rating: 2.9 } });
-  const blocked = await prisma.vendor.create({ data: { name: "QuickDeal Traders", category: "Office Supplies", subcategory: "Paper & Stationery", gstNumber: "06AABCD5566R1Z0", contactName: "Mohit Agarwal", email: "vendor@quickdeal.com", phone: "+91 94321 00000", address: "MG Road, Gurugram, HR", city: "Gurugram", status: "BLACKLISTED", rating: 2.1 } });
+  const blocked = await prisma.vendor.create({ data: { name: "QuickDeal Traders", category: "Office Supplies", subcategory: "Paper & Stationery", gstNumber: "06AABCD5566R1Z0", contactName: "Mohit Agarwal", email: "vendor@quickdeal.com", phone: "+91 94321 00000", address: "MG Road, Gurugram, HR", city: "Gurugram", status: "BLACKLISTED", isBlacklisted: true, rating: 2.1 } });
 
   // ---------- Users ----------
   const admin = await prisma.user.create({ data: { name: "Main Admin", email: "admin@vendorbridge.com", passwordHash: pw, role: "ADMIN", status: "APPROVED", city: "Bengaluru" } });
@@ -123,7 +123,7 @@ async function main() {
     if (opts.invoice) {
       invN++;
       const fullyReceived = grn ? opts.goods === "complete" : false;
-      const matchStatus = !grn ? "PENDING" : fullyReceived ? "MATCHED" : "MISMATCH";
+      const matchStatus = !grn ? "PENDING" : fullyReceived ? "MATCHED" : "PARTIALLY_MATCHED";
       const invStatus = opts.invoiceStatus || (opts.sent ? "SENT" : "DRAFT");
       const invDate = new Date(opts.awardedAt.getTime() + 4 * 24 * 3600 * 1000);
       const inv = await prisma.invoice.create({

@@ -238,7 +238,6 @@ export default function SignupPage() {
                 >
                   <option value="BUYER">Buyer</option>
                   <option value="SELLER">Seller / Vendor</option>
-                  <option value="ADMIN">Main System Admin</option>
                 </select>
               </div>
             </div>

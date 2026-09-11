@@ -77,8 +77,9 @@ async function startPostgresWithRetry() {
   // Guarantee the Next.js app connects to THIS embedded database.
   fs.writeFileSync(path.join(root, ".env.local"), `DATABASE_URL=${DB_URL}\nJWT_SECRET=${JWT}\n`);
 
+  const npxCmd = process.platform === "win32" ? "npx.cmd" : "npx";
   console.log("• Applying database schema…");
-  execSync("npx prisma db push --skip-generate --accept-data-loss", { cwd: root, env, stdio: "inherit", shell: true });
+  execSync(`${npxCmd} prisma db push --skip-generate --accept-data-loss`, { cwd: root, env, stdio: "inherit", shell: true });
 
   const { PrismaClient } = await import("@prisma/client");
   process.env.DATABASE_URL = DB_URL;
@@ -87,7 +88,7 @@ async function startPostgresWithRetry() {
   await prisma.$disconnect();
   if (userCount === 0) {
     console.log("• Seeding demo data…");
-    execSync("npx tsx prisma/seed.ts", { cwd: root, env, stdio: "inherit", shell: true });
+    execSync(`${npxCmd} tsx prisma/seed.ts`, { cwd: root, env, stdio: "inherit", shell: true });
   } else {
     console.log(`• Database already has ${userCount} users — skipping seed.`);
   }

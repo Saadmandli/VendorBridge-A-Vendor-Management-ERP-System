@@ -45,3 +45,17 @@ export const CATEGORIES_TAXONOMY: Record<string, string[]> = {
 };
 
 export const CATEGORY_NAMES = Object.keys(CATEGORIES_TAXONOMY);
+
+export const CATEGORY_GST_RATES: Record<string, number> = {
+  "Furniture": 18,
+  "Construction": 28,
+  "IT Hardware & Electronics": 18,
+  "Office Supplies": 12,
+  "Manufacturing & Raw Materials": 18,
+  "Services": 18,
+};
+
+export function getCategoryGstRate(category?: string | null): number {
+  if (!category) return 18;
+  return CATEGORY_GST_RATES[category] ?? 18;
+}

@@ -14,6 +14,15 @@ export async function POST(req: Request) {
     const vendorId = user.role === "SELLER" ? user.vendorId : body.vendorId;
     if (!vendorId) return NextResponse.json({ error: "Vendor not resolved" }, { status: 400 });
 
+    const vendor = await prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
+    if (vendor.isBlacklisted || vendor.status === "BLACKLISTED") {
+      return NextResponse.json(
+        { error: "Access denied. Blacklisted suppliers are prohibited from submitting quotations." },
+        { status: 403 }
+      );
+    }
+
     const rfq = await prisma.rFQ.findUnique({ where: { id: rfqId }, include: { items: true, createdBy: true, invitedVendors: true } });
     if (!rfq) return NextResponse.json({ error: "RFQ not found" }, { status: 404 });
     if (rfq.status !== "OPEN") return NextResponse.json({ error: "This RFQ is no longer accepting quotations" }, { status: 400 });

@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { action } = body;
 
-    // Buyer creates a new counter-offer
+    // Buyer or Seller creates a new counter-offer round
     if (action === "CREATE") {
       const { quotationId, targetPrice, targetDays, message } = body;
       if (!quotationId || !targetPrice || !targetDays) {
@@ -23,6 +23,15 @@ export async function POST(req: Request) {
       });
       if (!quotation) return NextResponse.json({ error: "Quotation not found" }, { status: 404 });
 
+      if (new Date() > new Date(quotation.rfq.deadline)) {
+        return NextResponse.json({ error: "Bidding deadline for this RFQ has expired. No negotiations permitted." }, { status: 400 });
+      }
+      if (quotation.rfq.status !== "OPEN") {
+        return NextResponse.json({ error: "This RFQ is no longer open for negotiations." }, { status: 400 });
+      }
+
+      const initialStatus = user.role === "SELLER" ? "PENDING_BUYER_RESPONSE" : "PENDING_SELLER_RESPONSE";
+
       const counter = await prisma.counterOffer.create({
         data: {
           quotationId,
@@ -30,7 +39,7 @@ export async function POST(req: Request) {
           targetDays: Number(targetDays),
           message: message || null,
           createdById: user.id,
-          status: "PENDING",
+          status: initialStatus,
         },
       });
 
@@ -39,26 +48,75 @@ export async function POST(req: Request) {
         action: "COUNTER_OFFER",
         entityType: "Quotation",
         entityId: quotationId,
-        message: `Buyer counter-offer submitted for ${quotation.vendor.name} (Target: ₹${Number(targetPrice).toLocaleString("en-IN")})`,
+        message: `${user.name} proposed counter-terms for ${quotation.vendor.name} (₹${Number(targetPrice).toLocaleString("en-IN")}, ${targetDays} days)`,
       });
 
-      // Find seller user account and notify
-      const sellerUser = await prisma.user.findFirst({
-        where: { vendorId: quotation.vendorId, role: "SELLER" },
-      });
-      if (sellerUser) {
+      // Dispatch notifications to opposite party
+      if (user.role === "SELLER") {
         await notify(
-          sellerUser.id,
+          quotation.rfq.createdById,
           "COUNTER_OFFER",
-          `Buyer submitted a counter-offer on ${quotation.rfq.rfqNumber}: Target ₹${Number(targetPrice).toLocaleString("en-IN")}, ${targetDays} days`,
+          `Supplier ${quotation.vendor.name} countered on ${quotation.rfq.rfqNumber}: Target ₹${Number(targetPrice).toLocaleString("en-IN")}, ${targetDays} days`,
           `/rfqs/${quotation.rfqId}`
         );
+      } else {
+        const sellerUser = await prisma.user.findFirst({
+          where: { vendorId: quotation.vendorId, role: "SELLER" },
+        });
+        if (sellerUser) {
+          await notify(
+            sellerUser.id,
+            "COUNTER_OFFER",
+            `Buyer submitted counter-offer on ${quotation.rfq.rfqNumber}: Target ₹${Number(targetPrice).toLocaleString("en-IN")}, ${targetDays} days`,
+            `/rfqs/${quotation.rfqId}`
+          );
+        }
       }
 
       return NextResponse.json({ counter }, { status: 201 });
     }
 
-    // Seller responds to counter-offer (ACCEPT or REJECT)
+    // Propose revised terms in an ongoing round (COUNTER_BACK)
+    if (action === "COUNTER_BACK") {
+      const { counterId, targetPrice, targetDays, message } = body;
+      if (!counterId || !targetPrice || !targetDays) {
+        return NextResponse.json({ error: "Counter ID, revised price, and delivery timeline are required" }, { status: 400 });
+      }
+
+      const counter = await prisma.counterOffer.findUnique({
+        where: { id: counterId },
+        include: { quotation: { include: { rfq: true, vendor: true } } },
+      });
+      if (!counter) return NextResponse.json({ error: "Counter-offer not found" }, { status: 404 });
+
+      if (new Date() > new Date(counter.quotation.rfq.deadline)) {
+        return NextResponse.json({ error: "Bidding deadline for this RFQ has expired." }, { status: 400 });
+      }
+
+      const nextStatus = user.role === "SELLER" ? "PENDING_BUYER_RESPONSE" : "PENDING_SELLER_RESPONSE";
+
+      const updatedCounter = await prisma.counterOffer.update({
+        where: { id: counterId },
+        data: {
+          targetPrice: Number(targetPrice),
+          targetDays: Number(targetDays),
+          message: message || null,
+          status: nextStatus,
+        },
+      });
+
+      await logActivity({
+        userId: user.id,
+        action: "COUNTER_BACK",
+        entityType: "Quotation",
+        entityId: counter.quotationId,
+        message: `${user.name} submitted revised negotiation terms for ${counter.quotation.rfq.rfqNumber}`,
+      });
+
+      return NextResponse.json({ counter: updatedCounter });
+    }
+
+    // Party accepts or rejects the current proposal
     if (action === "RESPOND") {
       const { counterId, response } = body; // ACCEPTED or REJECTED
       if (!counterId || !["ACCEPTED", "REJECTED"].includes(response)) {
@@ -71,12 +129,16 @@ export async function POST(req: Request) {
       });
       if (!counter) return NextResponse.json({ error: "Counter-offer not found" }, { status: 404 });
 
+      if (new Date() > new Date(counter.quotation.rfq.deadline)) {
+        return NextResponse.json({ error: "Bidding deadline for this RFQ has expired." }, { status: 400 });
+      }
+
       const updatedCounter = await prisma.counterOffer.update({
         where: { id: counterId },
         data: { status: response },
       });
 
-      // If accepted by Seller, update quotation's price & delivery days to agreed counter terms
+      // If accepted, synchronize quotation's total amount and delivery timeline
       if (response === "ACCEPTED") {
         await prisma.quotation.update({
           where: { id: counter.quotationId },
@@ -92,16 +154,8 @@ export async function POST(req: Request) {
         action: `COUNTER_${response}`,
         entityType: "Quotation",
         entityId: counter.quotationId,
-        message: `Seller ${response.toLowerCase()} counter-offer for ${counter.quotation.rfq.rfqNumber}`,
+        message: `${user.name} marked counter-offer ${response.toLowerCase()} for ${counter.quotation.rfq.rfqNumber}`,
       });
-
-      // Notify Buyer who created the RFQ
-      await notify(
-        counter.quotation.rfq.createdById,
-        "COUNTER_OFFER",
-        `Seller ${response.toLowerCase()} your counter-offer for ${counter.quotation.rfq.rfqNumber} (${counter.quotation.vendor.name})`,
-        `/rfqs/${counter.quotation.rfqId}`
-      );
 
       return NextResponse.json({ counter: updatedCounter });
     }

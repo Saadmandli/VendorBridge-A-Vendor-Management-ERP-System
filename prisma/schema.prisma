@@ -67,6 +67,7 @@ enum MatchStatus {
   PENDING
   MATCHED
   MISMATCH
+  PARTIALLY_MATCHED
 }
 
 enum GRNStatus {
@@ -95,19 +96,20 @@ model User {
 }
 
 model Vendor {
-  id          String       @id @default(cuid())
-  name        String
-  category    String
-  subcategory String?
-  gstNumber   String?
-  contactName String?
-  email       String       @unique
-  phone       String?
-  address     String?
-  city        String?
-  status      VendorStatus @default(PENDING)
-  rating      Float        @default(0)
-  createdAt   DateTime     @default(now())
+  id            String       @id @default(cuid())
+  name          String
+  category      String
+  subcategory   String?
+  gstNumber     String?
+  contactName   String?
+  email         String       @unique
+  phone         String?
+  address       String?
+  city          String?
+  status        VendorStatus @default(PENDING)
+  isBlacklisted Boolean      @default(false)
+  rating        Float        @default(0)
+  createdAt     DateTime     @default(now())
 
   users          User[]
   quotations     Quotation[]
@@ -145,6 +147,7 @@ model RFQItem {
   description String?
   quantity    Int
   unit        String  @default("pcs")
+  gstRate     Float   @default(18)
 
   quotationItems    QuotationItem[]
   goodsReceiptItems GoodsReceiptItem[]
@@ -208,29 +211,29 @@ model Approval {
 }
 
 model PurchaseOrder {
-  id           String        @id @default(cuid())
-  poNumber     String        @unique
-  quotationId  String        @unique
-  quotation    Quotation     @relation(fields: [quotationId], references: [id])
+  id           String         @id @default(cuid())
+  poNumber     String         @unique
+  quotationId  String         @unique
+  quotation    Quotation      @relation(fields: [quotationId], references: [id])
   vendorId     String
-  vendor       Vendor        @relation(fields: [vendorId], references: [id])
+  vendor       Vendor         @relation(fields: [vendorId], references: [id])
   subtotal     Float
-  taxRate      Float         @default(18)
+  taxRate      Float          @default(18)
   taxAmount    Float
   totalAmount  Float
-  savings      Float         @default(0)
-  budgetSaving Float         @default(0)
-  status       POStatus      @default(ISSUED)
-  createdAt    DateTime      @default(now())
+  savings      Float          @default(0)
+  budgetSaving Float          @default(0)
+  status       POStatus       @default(ISSUED)
+  createdAt    DateTime       @default(now())
 
-  invoice      Invoice?
-  goodsReceipt GoodsReceipt?
+  invoice       Invoice?
+  goodsReceipts GoodsReceipt[]
 }
 
 model GoodsReceipt {
   id              String        @id @default(cuid())
   grnNumber       String        @unique
-  purchaseOrderId String        @unique
+  purchaseOrderId String
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
   receivedById    String?
   receivedBy      User?         @relation(fields: [receivedById], references: [id])

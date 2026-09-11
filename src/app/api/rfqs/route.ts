@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, AuthError } from "@/lib/rbac";
 import { logActivity, notify } from "@/lib/activity";
 import { genNumber } from "@/lib/utils";
+import { getCategoryGstRate } from "@/lib/categories";
 
 export async function GET(req: Request) {
   try {
@@ -75,6 +76,17 @@ export async function POST(req: Request) {
     const count = await prisma.rFQ.count();
     const rfqNumber = await genNumber("RFQ", count);
 
+    const defaultGst = getCategoryGstRate(body.category);
+
+    // Exclude any blacklisted vendors from invitations
+    const candidateIds = (body.vendorIds || []).map((id: string) => String(id));
+    const eligibleVendors = candidateIds.length > 0
+      ? await prisma.vendor.findMany({
+          where: { id: { in: candidateIds }, isBlacklisted: false, status: { not: "BLACKLISTED" } },
+          select: { id: true },
+        })
+      : [];
+
     const rfq = await prisma.rFQ.create({
       data: {
         rfqNumber,
@@ -94,9 +106,10 @@ export async function POST(req: Request) {
             description: it.description || null,
             quantity: Number(it.quantity) || 1,
             unit: it.unit || "pcs",
+            gstRate: it.gstRate !== undefined && it.gstRate !== null && it.gstRate !== "" ? Number(it.gstRate) : defaultGst,
           })),
         },
-        invitedVendors: { create: (body.vendorIds || []).map((id: string) => ({ vendorId: id })) },
+        invitedVendors: { create: eligibleVendors.map((v) => ({ vendorId: v.id })) },
       },
       include: { invitedVendors: true },
     });

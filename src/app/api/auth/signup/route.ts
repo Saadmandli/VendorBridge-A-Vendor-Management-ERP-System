@@ -31,10 +31,19 @@ export async function POST(req: Request) {
     const exists = await prisma.user.findUnique({ where: { email: lcEmail } });
     if (exists) return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
 
-    let finalRole: Role = ALLOWED.includes(role) ? role : "BUYER";
+    const totalUsers = await prisma.user.count();
+    if (role === "ADMIN" && totalUsers > 0) {
+      return NextResponse.json(
+        { error: "Public registration for the ADMIN role is strictly forbidden." },
+        { status: 403 }
+      );
+    }
+
+    const isBootstrapAdmin = totalUsers === 0 && role === "ADMIN";
+    const finalRole: Role = isBootstrapAdmin ? "ADMIN" : role === "SELLER" ? "SELLER" : "BUYER";
+    const userStatus = isBootstrapAdmin ? "APPROVED" : "PENDING";
 
     const passwordHash = await hashPassword(password);
-    const userStatus = finalRole === "ADMIN" ? "APPROVED" : "PENDING";
     const userCity = city ? String(city).trim() : null;
 
     let vendorId: string | undefined;

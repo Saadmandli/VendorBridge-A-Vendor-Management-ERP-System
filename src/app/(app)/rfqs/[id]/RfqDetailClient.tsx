@@ -71,7 +71,9 @@ function VendorQuote({ rfq, myQuotation, onDone }: any) {
   const total = rfq.items.reduce((s: number, it: any) => s + (prices[it.id] || 0) * it.quantity, 0);
   const isExpired = rfq.deadline ? new Date() > new Date(rfq.deadline) : false;
   const closed = rfq.status !== "OPEN" || isExpired;
-  const activeCounter = myQuotation?.counterOffers?.find((c: any) => c.status === "PENDING");
+  const activeCounter = myQuotation?.counterOffers?.find(
+    (c: any) => c.status === "PENDING_SELLER_RESPONSE" || c.status === "PENDING"
+  );
 
   async function respondCounter(counterId: string, response: "ACCEPTED" | "REJECTED") {
     setCounterBusy(true);
@@ -297,8 +299,29 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
         </div>
       )}
 
+      {/* Sealed Bidding Notice */}
+      {rec?.sealed && (
+        <div className="card mb-4 p-5 border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-50 via-white to-slate-50">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔒</span>
+            <div>
+              <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <span>Sealed Bidding Active (Blind Bidding Integrity)</span>
+                <span className="badge bg-purple-100 text-purple-700">Sealed</span>
+              </div>
+              <div className="text-xs text-slate-600 mt-1">
+                Quotations, line-item pricing, and Smart Award algorithmic recommendations remain sealed and confidential until the tender deadline passes ({fmtDateTime(rec.deadline)}).
+              </div>
+              <div className="text-xs text-purple-700 font-semibold mt-1">
+                Total Bids Submitted: {rec.count} {rec.count === 1 ? "quotation" : "quotations"}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Smart Award recommendation banner */}
-      {winner && (
+      {!rec?.sealed && winner && (
         <div className="card mb-4 p-5 border-l-4 border-l-brand-500 bg-gradient-to-r from-brand-50 to-white">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
@@ -347,6 +370,21 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
                 deliveryDays: q.deliveryDays,
               });
 
+              if (rec?.sealed) {
+                return (
+                  <tr key={q.id}>
+                    <td className="td"><span className="badge bg-purple-50 text-purple-700">🔒 Sealed</span></td>
+                    <td className="td font-medium">{q.vendor.name}</td>
+                    <td className="td text-xs text-slate-400">Locked until deadline</td>
+                    <td className="td text-xs text-slate-400">Locked until deadline</td>
+                    <td className="td text-xs text-slate-400">—</td>
+                    <td className="td text-xs font-semibold text-purple-700">🔒 Sealed Bid</td>
+                    <td className="td"><Badge status="SUBMITTED" /></td>
+                    <td className="td text-xs text-slate-400">Awaiting deadline</td>
+                  </tr>
+                );
+              }
+
               return (
                 <tr key={q.id} className={isWinner ? "bg-brand-50/50" : ""}>
                   <td className="td">{sc ? <span className={`badge ${sc.rank === 1 ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-600"}`}>#{sc.rank}</span> : "—"}</td>
@@ -364,7 +402,7 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
                     {latestCounter && (
                       <div className="mt-1">
                         <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${latestCounter.status === "ACCEPTED" ? "bg-emerald-100 text-emerald-700" : latestCounter.status === "REJECTED" ? "bg-rose-100 text-rose-700" : "bg-indigo-100 text-indigo-700"}`}>
-                          Counter {latestCounter.status} (₹{latestCounter.targetPrice.toLocaleString("en-IN")})
+                          Counter {latestCounter.status.replace(/_/g, " ")} (₹{latestCounter.targetPrice.toLocaleString("en-IN")})
                         </span>
                       </div>
                     )}
@@ -423,7 +461,7 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
             })}
           </tbody>
         </table>
-        {rec && <div className="px-5 py-2 border-t text-[11px] text-slate-400">Smart Award weights — Price 45% · Delivery 25% · Vendor rating 20% · Reliability 10%</div>}
+        {rec && !rec.sealed && <div className="px-5 py-2 border-t text-[11px] text-slate-400">Smart Award weights — Price 45% · Delivery 25% · Vendor rating 20% · Reliability 10%</div>}
       </div>
     </div>
   );

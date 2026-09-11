@@ -19,15 +19,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   try {
     const user = await requireUser(["ADMIN", "BUYER"]);
     const body = await req.json();
+    const isBlacklisted = body.isBlacklisted !== undefined ? Boolean(body.isBlacklisted) : body.status === "BLACKLISTED" ? true : undefined;
+    const nextStatus = isBlacklisted === true ? "BLACKLISTED" : body.status;
+
     const vendor = await prisma.vendor.update({
       where: { id: params.id },
       data: {
         name: body.name, category: body.category, gstNumber: body.gstNumber,
         contactName: body.contactName, phone: body.phone, address: body.address,
-        status: body.status, rating: body.rating !== undefined ? Number(body.rating) : undefined,
+        status: nextStatus, isBlacklisted, rating: body.rating !== undefined ? Number(body.rating) : undefined,
       },
     });
-    await logActivity({ userId: user.id, action: "UPDATE", entityType: "Vendor", entityId: vendor.id, message: `Vendor "${vendor.name}" updated` });
+    await logActivity({ userId: user.id, action: "UPDATE", entityType: "Vendor", entityId: vendor.id, message: `Vendor "${vendor.name}" updated (Blacklisted: ${vendor.isBlacklisted})` });
     return NextResponse.json({ vendor });
   } catch (e) { return err(e); }
 }
