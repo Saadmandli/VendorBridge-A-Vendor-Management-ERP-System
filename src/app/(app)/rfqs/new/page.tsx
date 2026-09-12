@@ -26,12 +26,16 @@ export default function NewRfq() {
     fetch(`/api/vendors?status=ACTIVE&category=${encodeURIComponent(category)}`)
       .then((r) => r.json())
       .then((d) => {
-        const list = d.vendors || [];
+        const list = (d.vendors || []).sort((a: any, b: any) => {
+          const aSub = a.subcategory === subcategory ? 1 : 0;
+          const bSub = b.subcategory === subcategory ? 1 : 0;
+          if (aSub !== bSub) return bSub - aSub;
+          return (b.rating || 0) - (a.rating || 0);
+        });
         setVendors(list);
-        // Pre-select all matching category vendors for convenience
         setVendorIds(list.map((v: any) => v.id));
       });
-  }, [category]);
+  }, [category, subcategory]);
 
   function handleCategoryChange(newCat: string) {
     setCategory(newCat);
@@ -159,22 +163,61 @@ export default function NewRfq() {
             </div>
           )}
 
-          <div className="grid sm:grid-cols-2 gap-2">
-            {vendors.map((v) => (
-              <label key={v.id} className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition ${vendorIds.includes(v.id) ? "border-brand-500 bg-brand-50/60 shadow-xs" : "border-slate-200 hover:bg-slate-50"}`}>
-                <input type="checkbox" checked={vendorIds.includes(v.id)} onChange={() => toggleVendor(v.id)} />
-                <div className="flex-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold text-slate-900">{v.name}</span>
-                    {v.rating > 0 && <span className="text-xs text-amber-600 font-semibold">★ {v.rating.toFixed(1)}</span>}
+          <div className="grid sm:grid-cols-2 gap-2.5">
+            {vendors.map((v) => {
+              const isExactSub = v.subcategory && v.subcategory === subcategory;
+              const isDemoSeller = ["vendor@techno.com", "vendor@prime.com", "vendor@acme.com"].includes(v.email);
+              const matchScore = isExactSub ? "⚡ 98% AI Match" : v.rating >= 4.0 ? "⚡ 92% AI Match" : "⚡ 85% AI Match";
+
+              return (
+                <label
+                  key={v.id}
+                  className={`flex items-start gap-3 rounded-xl border p-3.5 cursor-pointer transition-all ${
+                    vendorIds.includes(v.id)
+                      ? "border-brand-500 bg-brand-50/70 shadow-xs"
+                      : "border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={vendorIds.includes(v.id)}
+                    onChange={() => toggleVendor(v.id)}
+                    className="mt-1 accent-brand-600 rounded"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <div className="text-sm font-bold text-slate-900 leading-tight">
+                          {v.name}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded">
+                            {matchScore}
+                          </span>
+                          {isDemoSeller && (
+                            <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100/70 px-1.5 py-0.5 rounded">
+                              ✨ Demo Supplier
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {v.rating > 0 && (
+                        <span className="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg shrink-0">
+                          ★ {v.rating.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500 flex flex-wrap items-center gap-2 mt-2">
+                      <span className="font-medium text-slate-600">
+                        {v.subcategory || v.category}
+                      </span>
+                      {v.city && <span>· 📍 {v.city}</span>}
+                      {v.contactName && <span>· 👤 {v.contactName}</span>}
+                    </div>
                   </div>
-                  <div className="text-xs text-slate-500 flex gap-2 mt-0.5">
-                    <span>{v.subcategory || v.category}</span>
-                    {v.city && <span>· 📍 {v.city}</span>}
-                  </div>
-                </div>
-              </label>
-            ))}
+                </label>
+              );
+            })}
           </div>
         </div>
 

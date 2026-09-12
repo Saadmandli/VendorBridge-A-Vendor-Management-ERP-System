@@ -40,6 +40,14 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Invalid userId or status" }, { status: 400 });
     }
 
+    const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (targetUser?.email === "admin@vendorbridge.com" && status !== "APPROVED") {
+      return NextResponse.json(
+        { error: "The default demo Main Admin account is protected and cannot be disabled." },
+        { status: 400 }
+      );
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { status: status as any },
@@ -88,7 +96,7 @@ export async function POST(req: Request) {
 
     const { hashPassword } = await import("@/lib/auth");
     const passwordHash = await hashPassword(password);
-    let finalRole = role === "SELLER" ? "SELLER" : "BUYER";
+    let finalRole = role === "ADMIN" ? "ADMIN" : role === "SELLER" ? "SELLER" : "BUYER";
     let vendorId: string | undefined;
 
     if (finalRole === "SELLER") {

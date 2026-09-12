@@ -29,7 +29,9 @@ async function main() {
 
   // ---------- Users ----------
   const admin = await prisma.user.create({ data: { name: "Main Admin", email: "admin@vendorbridge.com", passwordHash: pw, role: "ADMIN", status: "APPROVED", city: "Bengaluru" } });
-  const officer = await prisma.user.create({ data: { name: "Priya Buyer", email: "buyer@vendorbridge.com", passwordHash: pw, role: "BUYER", status: "APPROVED", city: "Bengaluru" } });
+  const officer = await prisma.user.create({ data: { name: "Priya Sharma (IT Lead)", email: "buyer@vendorbridge.com", passwordHash: pw, role: "BUYER", status: "APPROVED", city: "Bengaluru" } });
+  await prisma.user.create({ data: { name: "Rajesh Patel (Ops Manager)", email: "buyer2@vendorbridge.com", passwordHash: pw, role: "BUYER", status: "APPROVED", city: "Mumbai" } });
+  await prisma.user.create({ data: { name: "Ananya Sen (Procurement Specialist)", email: "buyer3@vendorbridge.com", passwordHash: pw, role: "BUYER", status: "APPROVED", city: "New Delhi" } });
   await prisma.user.create({ data: { name: "Acme Seller", email: "vendor@acme.com", passwordHash: pw, role: "SELLER", status: "APPROVED", city: "Pune", vendorId: acme.id } });
   await prisma.user.create({ data: { name: "Techno Seller", email: "vendor@techno.com", passwordHash: pw, role: "SELLER", status: "APPROVED", city: "Bengaluru", vendorId: techno.id } });
   await prisma.user.create({ data: { name: "Global Seller", email: "vendor@global.com", passwordHash: pw, role: "SELLER", status: "APPROVED", city: "New Delhi", vendorId: global.id } });

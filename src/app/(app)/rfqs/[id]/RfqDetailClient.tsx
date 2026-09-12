@@ -299,29 +299,8 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
         </div>
       )}
 
-      {/* Sealed Bidding Notice */}
-      {rec?.sealed && (
-        <div className="card mb-4 p-5 border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-50 via-white to-slate-50">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🔒</span>
-            <div>
-              <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <span>Sealed Bidding Active (Blind Bidding Integrity)</span>
-                <span className="badge bg-purple-100 text-purple-700">Sealed</span>
-              </div>
-              <div className="text-xs text-slate-600 mt-1">
-                Quotations, line-item pricing, and Smart Award algorithmic recommendations remain sealed and confidential until the tender deadline passes ({fmtDateTime(rec.deadline)}).
-              </div>
-              <div className="text-xs text-purple-700 font-semibold mt-1">
-                Total Bids Submitted: {rec.count} {rec.count === 1 ? "quotation" : "quotations"}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Smart Award recommendation banner */}
-      {!rec?.sealed && winner && (
+      {winner && (
         <div className="card mb-4 p-5 border-l-4 border-l-brand-500 bg-gradient-to-r from-brand-50 to-white">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
@@ -369,21 +348,6 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
                 competingPrices: allPrices,
                 deliveryDays: q.deliveryDays,
               });
-
-              if (rec?.sealed) {
-                return (
-                  <tr key={q.id}>
-                    <td className="td"><span className="badge bg-purple-50 text-purple-700">🔒 Sealed</span></td>
-                    <td className="td font-medium">{q.vendor.name}</td>
-                    <td className="td text-xs text-slate-400">Locked until deadline</td>
-                    <td className="td text-xs text-slate-400">Locked until deadline</td>
-                    <td className="td text-xs text-slate-400">—</td>
-                    <td className="td text-xs font-semibold text-purple-700">🔒 Sealed Bid</td>
-                    <td className="td"><Badge status="SUBMITTED" /></td>
-                    <td className="td text-xs text-slate-400">Awaiting deadline</td>
-                  </tr>
-                );
-              }
 
               return (
                 <tr key={q.id} className={isWinner ? "bg-brand-50/50" : ""}>

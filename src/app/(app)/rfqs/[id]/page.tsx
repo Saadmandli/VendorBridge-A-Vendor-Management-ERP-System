@@ -20,22 +20,8 @@ export default async function RfqDetail({ params }: { params: { id: string } }) 
   const sellerVendor = user.vendorId ? await prisma.vendor.findUnique({ where: { id: user.vendorId } }) : null;
   if (user.role === "SELLER" && !rfq.invitedVendors.some((iv) => iv.vendorId === user.vendorId) && rfq.category !== sellerVendor?.category) notFound();
 
-  const isSealed = rfq.status === "OPEN" && new Date() < new Date(rfq.deadline);
-
-  let visibleQuotations =
+  const visibleQuotations =
     user.role === "SELLER" ? rfq.quotations.filter((q) => q.vendorId === user.vendorId) : rfq.quotations;
-
-  if (isSealed && user.role === "BUYER") {
-    visibleQuotations = visibleQuotations.map((q) => ({
-      ...q,
-      totalAmount: 0,
-      deliveryDays: 0,
-      notes: null,
-      isSealed: true,
-      items: [],
-      counterOffers: [],
-    })) as any;
-  }
 
   const myQuotation = user.role === "SELLER" ? visibleQuotations[0] || null : null;
 

@@ -14,7 +14,7 @@ export default function PendingApprovalPage() {
       .then((data) => {
         if (data.user) {
           setUser(data.user);
-          if (data.user.status === "APPROVED" || data.user.role === "ADMIN") {
+          if (data.user.status === "APPROVED") {
             router.push("/dashboard");
           }
         }
@@ -25,7 +25,7 @@ export default function PendingApprovalPage() {
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
+    router.push(user?.role === "ADMIN" ? "/admin/login" : "/login");
   };
 
   if (loading) {

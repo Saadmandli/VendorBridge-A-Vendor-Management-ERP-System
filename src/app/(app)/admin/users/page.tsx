@@ -169,14 +169,14 @@ export default function AdminUsersApprovalPage() {
                     <td className="td">
                       <span
                         className={`badge ${
-                          u.role === "SELLER"
+                          u.role === "ADMIN"
+                            ? "bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold"
+                            : u.role === "SELLER"
                             ? "bg-purple-50 text-purple-700 border border-purple-200/80"
-                            : u.role === "BUYER"
-                            ? "bg-blue-50 text-blue-700 border border-blue-200/80"
-                            : "bg-indigo-50 text-indigo-700 border border-indigo-200/80"
+                            : "bg-blue-50 text-blue-700 border border-blue-200/80"
                         }`}
                       >
-                        {u.role}
+                        {u.role === "ADMIN" ? "🛡️ Main Admin" : u.role}
                       </span>
                     </td>
                     <td className="td font-medium text-slate-800">
@@ -300,6 +300,7 @@ export default function AdminUsersApprovalPage() {
                 >
                   <option value="BUYER">Buyer</option>
                   <option value="SELLER">Seller / Vendor</option>
+                  <option value="ADMIN">Main Admin</option>
                 </select>
               </div>
 

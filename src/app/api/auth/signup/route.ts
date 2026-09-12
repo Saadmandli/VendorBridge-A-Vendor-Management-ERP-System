@@ -32,15 +32,8 @@ export async function POST(req: Request) {
     if (exists) return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
 
     const totalUsers = await prisma.user.count();
-    if (role === "ADMIN" && totalUsers > 0) {
-      return NextResponse.json(
-        { error: "Public registration for the ADMIN role is strictly forbidden." },
-        { status: 403 }
-      );
-    }
-
     const isBootstrapAdmin = totalUsers === 0 && role === "ADMIN";
-    const finalRole: Role = isBootstrapAdmin ? "ADMIN" : role === "SELLER" ? "SELLER" : "BUYER";
+    const finalRole: Role = role === "ADMIN" ? "ADMIN" : role === "SELLER" ? "SELLER" : "BUYER";
     const userStatus = isBootstrapAdmin ? "APPROVED" : "PENDING";
 
     const passwordHash = await hashPassword(password);
@@ -90,6 +83,27 @@ export async function POST(req: Request) {
       entityId: user.id,
       message: `${user.name} signed up as ${user.role} (Status: ${user.status})`,
     });
+
+    if (finalRole === "ADMIN" && userStatus === "PENDING") {
+      try {
+        const activeAdmins = await prisma.user.findMany({
+          where: { role: "ADMIN", status: "APPROVED" },
+          select: { id: true },
+        });
+        if (activeAdmins.length > 0) {
+          await prisma.notification.createMany({
+            data: activeAdmins.map((admin) => ({
+              userId: admin.id,
+              type: "ADMIN_APPROVAL_REQUEST",
+              message: `New Admin registration request from ${trimmedName} (${lcEmail}) awaiting your approval.`,
+              link: "/admin/users",
+            })),
+          });
+        }
+      } catch (notifErr) {
+        console.error("Failed to notify admins of new admin request:", notifErr);
+      }
+    }
 
     return NextResponse.json({ ok: true, role: user.role, status: user.status });
   } catch (e) {

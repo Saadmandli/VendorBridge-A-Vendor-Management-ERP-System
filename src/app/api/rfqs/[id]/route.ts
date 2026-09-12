@@ -35,27 +35,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
       // ...and only see their own quotation, not competitors'.
       rfq.quotations = rfq.quotations.filter((q) => q.vendorId === user.vendorId);
     }
-
-    const isSealed = rfq.status === "OPEN" && new Date() < new Date(rfq.deadline);
-    if (isSealed && user.role === "BUYER") {
-      rfq.quotations = rfq.quotations.map((q) => ({
-        id: q.id,
-        rfqId: q.rfqId,
-        vendorId: q.vendorId,
-        vendor: { id: q.vendor.id, name: q.vendor.name, rating: q.vendor.rating, city: q.vendor.city },
-        deliveryDays: 0,
-        notes: null,
-        status: q.status,
-        totalAmount: 0,
-        createdAt: q.createdAt,
-        isSealed: true,
-        items: [],
-        approvals: [],
-        counterOffers: [],
-      })) as any;
-    }
-
-    return NextResponse.json({ rfq, isSealed });
+    return NextResponse.json({ rfq, isSealed: false });
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
     console.error(e); return NextResponse.json({ error: "Server error" }, { status: 500 });

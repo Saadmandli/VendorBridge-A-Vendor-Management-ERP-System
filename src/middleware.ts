@@ -6,7 +6,7 @@ const secret = new TextEncoder().encode(
   process.env.JWT_SECRET || "dev-insecure-secret-change-me-in-env-file-please"
 );
 
-const PUBLIC = ["/login", "/signup", "/forgot-password", "/pending-approval"];
+const PUBLIC = ["/login", "/signup", "/forgot-password", "/pending-approval", "/admin/login", "/admin/signup"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -34,9 +34,8 @@ export async function middleware(req: NextRequest) {
 
   if (valid) {
     const isPending = payload?.status === "PENDING" || payload?.status === "REJECTED";
-    const isAdmin = payload?.role === "ADMIN";
 
-    if (isPending && !isAdmin && pathname !== "/pending-approval") {
+    if (isPending && pathname !== "/pending-approval") {
       const url = req.nextUrl.clone();
       url.pathname = "/pending-approval";
       return NextResponse.redirect(url);

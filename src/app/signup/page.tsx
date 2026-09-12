@@ -296,6 +296,23 @@ export default function SignupPage() {
               Sign in
             </Link>
           </p>
+
+          <div className="pt-2 border-t border-slate-100">
+            <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-3 text-center">
+              <div className="text-xs font-bold text-slate-700">
+                Testing the ERP Platform?
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5 mb-2">
+                Pre-configured testing accounts are available (3 Buyers & 3 Sellers)
+              </p>
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-xs hover:bg-slate-50 transition"
+              >
+                ⚡ Use Demo Accounts (3 Buyers · 3 Sellers) &rarr;
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -13,23 +13,10 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     });
     if (!rfq) return NextResponse.json({ error: "RFQ not found" }, { status: 404 });
 
-    const isSealed = rfq.status === "OPEN" && new Date() < new Date(rfq.deadline);
     const quotes = await prisma.quotation.findMany({
       where: { rfqId: params.id, status: { in: ["SUBMITTED", "SELECTED"] } },
       include: { vendor: true },
     });
-
-    if (isSealed) {
-      return NextResponse.json({
-        sealed: true,
-        message: "Bidding is currently sealed. Recommendations unlock after the submission deadline.",
-        count: quotes.length,
-        deadline: rfq.deadline,
-        scored: [],
-        winner: null,
-        reasons: [],
-      });
-    }
 
     const scoredInputs = await Promise.all(
       quotes.map(async (q) => {
