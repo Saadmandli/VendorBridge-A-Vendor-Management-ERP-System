@@ -13,3 +13,5 @@ _DELETE_ME_locked_nodemodules
 .localdb
 
 .env.local
+
+*.tsbuildinfo

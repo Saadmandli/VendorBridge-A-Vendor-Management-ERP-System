@@ -138,16 +138,8 @@ export async function POST(req: Request) {
         data: { status: response },
       });
 
-      // If accepted, synchronize quotation's total amount and delivery timeline
-      if (response === "ACCEPTED") {
-        await prisma.quotation.update({
-          where: { id: counter.quotationId },
-          data: {
-            totalAmount: counter.targetPrice,
-            deliveryDays: counter.targetDays,
-          },
-        });
-      }
+      // Counter-offer response is recorded in staging layer (status = ACCEPTED or REJECTED)
+      // Parent quotation baseline totalAmount and deliveryDays remain untouched until atomic final award execution.
 
       await logActivity({
         userId: user.id,

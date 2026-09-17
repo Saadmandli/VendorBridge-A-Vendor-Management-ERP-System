@@ -176,10 +176,12 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
   const [busy, setBusy] = useState("");
   const [rec, setRec] = useState<any>(null);
   const [counterModalQuote, setCounterModalQuote] = useState<any>(null);
+  const [awardModalQuote, setAwardModalQuote] = useState<any>(null);
   const [targetPrice, setTargetPrice] = useState("");
   const [targetDays, setTargetDays] = useState("");
   const [counterMsg, setCounterMsg] = useState("");
   const [counterSubmitting, setCounterSubmitting] = useState(false);
+  const [awardSubmitting, setAwardSubmitting] = useState(false);
 
   const quotes = rfq.quotations;
 
@@ -201,12 +203,10 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
     e.preventDefault();
     if (!counterModalQuote) return;
     setCounterSubmitting(true);
-    const res = await fetch("/api/counter-offers", {
+    const res = await fetch(`/api/quotations/${counterModalQuote.id}/counter-offer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: "CREATE",
-        quotationId: counterModalQuote.id,
         targetPrice: Number(targetPrice),
         targetDays: Number(targetDays),
         message: counterMsg,
@@ -218,6 +218,22 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
       onChange();
     } else {
       alert("Failed to submit counter offer");
+    }
+  }
+
+  async function executeFinalAward(quotationId: string) {
+    setAwardSubmitting(true);
+    const res = await fetch(`/api/quotations/${quotationId}/award`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const data = await res.json();
+    setAwardSubmitting(false);
+    if (res.ok) {
+      setAwardModalQuote(null);
+      onChange();
+    } else {
+      alert(data.error || "Failed to execute atomic final award");
     }
   }
 
@@ -246,12 +262,12 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="font-bold text-slate-900">💬 Counter-Offer to {counterModalQuote.vendor.name}</h3>
+              <h3 className="font-bold text-slate-900">💬 Staged Counter-Offer to {counterModalQuote.vendor.name}</h3>
               <button onClick={() => setCounterModalQuote(null)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             <form onSubmit={submitCounterOffer} className="space-y-3">
               <div>
-                <label className="label">Current Quote Price</label>
+                <label className="label">Baseline Quoted Price</label>
                 <input className="input bg-slate-50 text-slate-500 font-semibold" value={inr(counterModalQuote.totalAmount)} disabled />
               </div>
               <div>
@@ -291,9 +307,74 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setCounterModalQuote(null)} className="btn-ghost">Cancel</button>
                 <button type="submit" disabled={counterSubmitting} className="btn-primary">
-                  {counterSubmitting ? "Sending…" : "Send Counter-Offer"}
+                  {counterSubmitting ? "Submitting…" : "Stage Counter-Offer"}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Lock & Award Confirmation Modal */}
+      {awardModalQuote && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                  🔒 Lock & Award Final Agreement
+                </h3>
+                <p className="text-xs text-slate-500">Atomic Award & Sourcing Execution</p>
+              </div>
+              <button type="button" onClick={() => setAwardModalQuote(null)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-1">
+              <div className="font-bold flex items-center gap-1">
+                ⚠️ Irreversible Sourcing Action Notice
+              </div>
+              <p>
+                This action commits all negotiated terms, awards the contract to <strong>{awardModalQuote.vendor?.name}</strong>, and permanently marks all competing bids as <strong>REJECTED</strong>.
+              </p>
+            </div>
+
+            {/* Price diff summary */}
+            <div className="bg-slate-50 rounded-xl p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Initial Quoted Price:</span>
+                <span className="font-semibold">{inr(awardModalQuote.totalAmount)}</span>
+              </div>
+              {awardModalQuote.stagedPrice !== awardModalQuote.totalAmount && (
+                <div className="flex justify-between text-emerald-700">
+                  <span>Staged Negotiated Price:</span>
+                  <span className="font-bold">{inr(awardModalQuote.stagedPrice)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t pt-2 font-bold text-slate-900">
+                <span>Final Agreed Award Value:</span>
+                <span className="text-base text-emerald-700">{inr(awardModalQuote.stagedPrice)}</span>
+              </div>
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>Delivery Schedule:</span>
+                <span>{awardModalQuote.stagedDays} Days</span>
+              </div>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                executeFinalAward(awardModalQuote.id);
+              }}
+              className="flex justify-end gap-2 pt-2"
+            >
+              <button type="button" onClick={() => setAwardModalQuote(null)} className="btn-ghost">Cancel</button>
+              <button
+                type="submit"
+                disabled={awardSubmitting}
+                className="btn-primary bg-emerald-600 hover:bg-emerald-700 border-emerald-600"
+              >
+                {awardSubmitting ? "Locking & Awarding…" : "Lock & Award Final Offer"}
+              </button>
             </form>
           </div>
         </div>
@@ -324,29 +405,37 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
 
       <div className="card overflow-x-auto">
         <div className="px-5 py-3 border-b font-semibold text-slate-800 flex justify-between items-center">
-          <span>Quotation Comparison & Interactive Negotiation</span>
-          <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2.5 py-1 rounded-md">🤖 Statistical AI & Direct Counter-Offer Engine</span>
+          <span className="flex items-center gap-2">
+            Quotation Comparison & Staged Negotiation Sandbox
+          </span>
+          <span className="text-xs text-indigo-600 font-medium bg-indigo-50 px-2.5 py-1 rounded-md">
+            🛡️ Isolated Sandbox & Atomic Award Engine
+          </span>
         </div>
         <table className="w-full min-w-[760px]">
           <thead className="bg-slate-50 border-b"><tr>
-            <th className="th">Rank</th><th className="th">Vendor</th><th className="th">Smart Score</th><th className="th">AI Risk & Anomaly Detector</th><th className="th">Delivery</th><th className="th">Total</th><th className="th">Status</th><th className="th">Action</th>
+            <th className="th">Rank</th><th className="th">Vendor</th><th className="th">Smart Score</th><th className="th">AI Risk & Anomaly</th><th className="th">Staged Delivery</th><th className="th">Staged Price</th><th className="th">Status</th><th className="th">Action</th>
           </tr></thead>
           <tbody className="divide-y">
             {[...quotes].sort((a: any, b: any) => (scoredById[b.id]?.score || 0) - (scoredById[a.id]?.score || 0)).map((q: any) => {
               const po = q.purchaseOrder;
               const sc = scoredById[q.id];
               const isWinner = winner?.quotationId === q.id;
+              const acceptedCounter = q.counterOffers?.find((c: any) => c.status === "ACCEPTED");
               const latestCounter = q.counterOffers?.[0];
+              
+              const stagedPrice = acceptedCounter ? acceptedCounter.targetPrice : (latestCounter?.targetPrice || q.totalAmount);
+              const stagedDays = acceptedCounter ? acceptedCounter.targetDays : (latestCounter?.targetDays || q.deliveryDays);
 
               const aiRisk = analyzeQuoteRisk({
                 quotationId: q.id,
                 vendorName: q.vendor.name,
                 vendorRating: q.vendor.rating || 0,
                 vendorCity: q.vendor.city,
-                totalAmount: q.totalAmount,
+                totalAmount: stagedPrice,
                 rfqBudget: rfq.budgetAmount,
                 competingPrices: allPrices,
-                deliveryDays: q.deliveryDays,
+                deliveryDays: stagedDays,
               });
 
               return (
@@ -364,9 +453,9 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
                     </div>
                     <div className="text-xs text-slate-400">{q.vendor.rating ? `★ ${q.vendor.rating.toFixed(1)}` : ""} {q.vendor.city ? `(${q.vendor.city})` : ""}</div>
                     {latestCounter && (
-                      <div className="mt-1">
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${latestCounter.status === "ACCEPTED" ? "bg-emerald-100 text-emerald-700" : latestCounter.status === "REJECTED" ? "bg-rose-100 text-rose-700" : "bg-indigo-100 text-indigo-700"}`}>
-                          Counter {latestCounter.status.replace(/_/g, " ")} (₹{latestCounter.targetPrice.toLocaleString("en-IN")})
+                      <div className="mt-1 flex flex-col gap-0.5">
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-semibold w-fit ${latestCounter.status === "ACCEPTED" ? "bg-emerald-100 text-emerald-700" : latestCounter.status === "REJECTED" ? "bg-rose-100 text-rose-700" : "bg-indigo-100 text-indigo-700"}`}>
+                          Staged {latestCounter.status.replace(/_/g, " ")} (₹{latestCounter.targetPrice.toLocaleString("en-IN")})
                         </span>
                       </div>
                     )}
@@ -379,17 +468,22 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
                       <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 border border-slate-200 block w-fit">
                         {aiRisk.riskBadgeLabel}
                       </span>
-                      <div className="text-[11px] text-slate-500 space-y-0.5">
-                        {aiRisk.signals.slice(0, 2).map((sig, idx) => (
-                          <div key={idx} className={sig.type === "WARNING" ? "text-amber-700 font-medium" : sig.type === "SUCCESS" ? "text-emerald-700" : "text-slate-600"}>
-                            • {sig.text}
-                          </div>
-                        ))}
-                      </div>
                     </div>
                   </td>
-                  <td className="td">{q.deliveryDays}d {sc?.isFastest && <span className="badge bg-blue-100 text-blue-700 ml-1">fastest</span>}</td>
-                  <td className="td font-semibold">{inr(q.totalAmount)} {sc?.isLowestPrice && <span className="badge bg-emerald-100 text-emerald-700 ml-1">lowest</span>}</td>
+                  <td className="td">
+                    <div>
+                      <span className="font-medium">{stagedDays}d</span>
+                      {stagedDays !== q.deliveryDays && <div className="text-[10px] text-slate-400 line-through">orig: {q.deliveryDays}d</div>}
+                    </div>
+                  </td>
+                  <td className="td">
+                    <div>
+                      <div className="font-bold text-slate-900">{inr(stagedPrice)}</div>
+                      {stagedPrice !== q.totalAmount && (
+                        <div className="text-[10px] text-slate-400 line-through">baseline: {inr(q.totalAmount)}</div>
+                      )}
+                    </div>
+                  </td>
                   <td className="td"><Badge status={q.status} /></td>
                   <td className="td">
                     {isAdmin ? (
@@ -398,14 +492,21 @@ function SmartComparison({ rfq, isAdmin, onChange }: any) {
                       </span>
                     ) : (
                       <>
-                        {!approvedQuoteId && q.status === "SUBMITTED" && (
+                        {!approvedQuoteId && rfq.status === "OPEN" && (q.status === "SUBMITTED" || q.status === "UNDER_NEGOTIATION") && (
                           <div className="flex flex-col gap-1.5">
-                            <button onClick={() => requestApproval(q.id)} disabled={busy === q.id} className="btn-primary py-1 text-xs">{busy === q.id ? "…" : "Select & Approve"}</button>
+                            <button
+                              onClick={() => {
+                                setAwardModalQuote({ ...q, stagedPrice, stagedDays });
+                              }}
+                              className="btn-primary py-1 text-xs bg-emerald-600 hover:bg-emerald-700 border-emerald-600"
+                            >
+                              🔒 Lock & Award Final Offer
+                            </button>
                             <button
                               onClick={() => {
                                 setCounterModalQuote(q);
-                                setTargetPrice(String(Math.round(q.totalAmount * 0.9)));
-                                setTargetDays(String(Math.max(1, q.deliveryDays - 2)));
+                                setTargetPrice(String(Math.round(stagedPrice * 0.95)));
+                                setTargetDays(String(Math.max(1, stagedDays - 1)));
                               }}
                               className="btn-ghost py-1 text-xs text-indigo-600 hover:bg-indigo-50 border border-indigo-200"
                             >
