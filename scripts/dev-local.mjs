@@ -33,18 +33,34 @@ process.on("SIGTERM", shutdown);
 /** Clean up a database left running/locked by a previous session. */
 function cleanupStaleDatabase() {
   const pidFile = path.join(dataDir, "postmaster.pid");
-  if (!fs.existsSync(pidFile)) return;
-  try {
-    const pid = parseInt(String(fs.readFileSync(pidFile, "utf8")).split("\n")[0].trim(), 10);
-    if (pid && pid > 0) {
-      console.log(`• Found a database from a previous run (pid ${pid}) — stopping it…`);
-      try {
-        if (process.platform === "win32") execSync(`taskkill /F /PID ${pid} /T`, { stdio: "ignore" });
-        else process.kill(pid, "SIGKILL");
-      } catch { /* already gone */ }
-    }
-  } catch { /* ignore */ }
-  try { fs.rmSync(pidFile, { force: true }); } catch {}
+  if (fs.existsSync(pidFile)) {
+    try {
+      const pid = parseInt(String(fs.readFileSync(pidFile, "utf8")).split("\n")[0].trim(), 10);
+      if (pid && pid > 0) {
+        console.log(`• Found a database from a previous run (pid ${pid}) — stopping it…`);
+        try {
+          if (process.platform === "win32") execSync(`taskkill /F /PID ${pid} /T`, { stdio: "ignore" });
+          else process.kill(pid, "SIGKILL");
+        } catch { /* already gone */ }
+      }
+    } catch { /* ignore */ }
+    try { fs.rmSync(pidFile, { force: true }); } catch {}
+  }
+
+  // Also verify port 5433 is free; kill any stale listener on port 5433
+  if (process.platform === "win32") {
+    try {
+      const netstat = execSync(`netstat -ano | findstr :${PG_PORT}`, { encoding: "utf8" });
+      const lines = netstat.trim().split("\n");
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        const pid = parseInt(parts[parts.length - 1], 10);
+        if (pid && pid > 0 && pid !== process.pid) {
+          try { execSync(`taskkill /F /PID ${pid} /T`, { stdio: "ignore" }); } catch {}
+        }
+      }
+    } catch { /* ignore if none found */ }
+  }
 }
 
 async function startPostgresWithRetry() {
@@ -74,8 +90,12 @@ async function startPostgresWithRetry() {
   await startPostgresWithRetry();
   try { await pg.createDatabase("vendorbridge"); } catch {}
 
-  // Guarantee the Next.js app connects to THIS embedded database.
-  fs.writeFileSync(path.join(root, ".env.local"), `DATABASE_URL=${DB_URL}\nJWT_SECRET=${JWT}\n`);
+  // Guarantee the Next.js app connects to THIS embedded database and preserves AI key
+  const existingKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || 
+    (fs.existsSync(path.join(root, ".env.local")) && fs.readFileSync(path.join(root, ".env.local"), "utf8").match(/GOOGLE_GENERATIVE_AI_API_KEY=["']?([^"'\r\n]+)["']?/)?.[1]) || 
+    (fs.existsSync(path.join(root, ".env")) && fs.readFileSync(path.join(root, ".env"), "utf8").match(/GOOGLE_GENERATIVE_AI_API_KEY=["']?([^"'\r\n]+)["']?/)?.[1]) || "";
+
+  fs.writeFileSync(path.join(root, ".env.local"), `DATABASE_URL=${DB_URL}\nJWT_SECRET=${JWT}\nGOOGLE_GENERATIVE_AI_API_KEY="${existingKey}"\n`);
 
   const npxCmd = process.platform === "win32" ? "npx.cmd" : "npx";
   console.log("• Applying database schema…");
@@ -94,7 +114,7 @@ async function startPostgresWithRetry() {
   }
 
   console.log("\n✓ Database ready. Starting the app on http://localhost:3000 …\n");
-  server = spawn("npm run dev", { cwd: root, env, stdio: "inherit", shell: true });
+  server = spawn(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "dev"], { cwd: root, env, stdio: "inherit", shell: true });
   server.on("exit", (code) => { pg.stop().finally(() => process.exit(code ?? 0)); });
 })().catch(async (e) => {
   const msg = (e && (e.message || e.toString())) || "unknown error";

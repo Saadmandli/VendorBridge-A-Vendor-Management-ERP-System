@@ -9,11 +9,11 @@ if errorlevel 1 ( echo [X] Node.js not found. Install it from https://nodejs.org
 
 if not exist .env copy .env.example .env >nul
 
-echo [1/2] Installing dependencies (first run can take a couple of minutes)...
-call npm install || ( echo [X] npm install failed & pause & exit /b 1 )
+echo [1/2] Checking dependencies...
+call npm.cmd install --legacy-peer-deps || ( echo [X] npm install failed & pause & exit /b 1 )
 
 echo [2/2] Starting database + app...
 echo      Open http://localhost:3000  (login: officer@vendorbridge.com / password123)
 echo      Press Ctrl+C in this window to stop.
-call npm run dev:local
+call npm.cmd run dev:local
 pause

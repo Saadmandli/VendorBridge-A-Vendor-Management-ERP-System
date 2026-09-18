@@ -17,28 +17,31 @@ so once you run it, every page is populated and matches everyone else.
    ```
    (If the project is in a subfolder like `vendorbridge`, `cd` into that.)
 
-2. **Create your .env** (this connects you to the shared database):
+2. **Create your .env** (this connects you to the database and AI Copilot):
    ```
    copy .env.example .env
    ```
    (Mac/Linux: `cp .env.example .env`)
 
+   > **Note for AI Copilot**: Ensure `GOOGLE_GENERATIVE_AI_API_KEY` is set in your `.env` or `.env.local` to enable the Gemini AI Copilot assistant.
+
 3. **Install and run:**
    ```
-   npm install
-   npm run dev
+   npm install --legacy-peer-deps
+   npm run dev:local
    ```
+   *(Or on Windows, simply double-click `run.bat`)*
 
-4. Open **http://localhost:3000** and log in (click a demo button):
+4. Open **http://localhost:3000** and log in:
 
    | Email | Password | Role |
    |-------|----------|------|
-   | officer@vendorbridge.com | password123 | Procurement Officer |
-   | manager@vendorbridge.com | password123 | Manager / Approver |
-   | admin@vendorbridge.com | password123 | Admin |
-   | vendor@techno.com | password123 | Vendor |
+   | admin@vendorbridge.com | password123 | Enterprise Admin |
+   | buyer@vendorbridge.com | password123 | Procurement Buyer |
+   | buyer2@vendorbridge.com | password123 | Operations Buyer |
+   | vendor@techno.com | password123 | Technology Supplier |
+   | vendor@prime.com | password123 | Prime Industrial Supplier |
 
 ## Important
-- Use **`npm run dev`** (connects to the shared Neon cloud database).
-- Do **NOT** use `npm run dev:local` — that starts a separate empty offline database.
+- **`npm run dev:local`** (or double-clicking **`run.bat`**) automatically boots the local database, ensures all demo data is populated, and starts the website on port 3000.
 - Keep the terminal window open while using the app; stop it with **Ctrl + C**.

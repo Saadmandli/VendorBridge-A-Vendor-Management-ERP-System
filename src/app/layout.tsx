@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import CopilotWidget from "@/components/CopilotWidget";
 
 export const metadata: Metadata = {
   title: "VendorBridge — Procurement & Vendor Management ERP",
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <CopilotWidget />
+      </body>
     </html>
   );
 }
